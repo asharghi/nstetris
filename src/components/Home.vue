@@ -1,18 +1,17 @@
 <template>
   <Frame>
     <Page actionBarHidden="true">
-      <GridLayout iosOverflowSafeArea="false">
+      <GridLayout background="#65ADF1" iosOverflowSafeArea="false">
         <StackLayout iosOverflowSafeArea="false" col="1" row="1">
           <StackLayout
             iosOverflowSafeArea="false"
             orientation="horizontal"
-            background="yellow"
-            v-for="row in board"
-            :key="row.id"
+            v-for="(row, rowIndex) in board"
+            :key="rowIndex"
           >
             <StackLayout
               iosOverflowSafeArea="false"
-              v-for="pixel in row.pixels"
+              v-for="pixel in row"
               :key="pixel.i + '-' + pixel.j"
               :class="{
                 'tetris-pixel-blocked': pixel.isBlocked,
@@ -25,13 +24,12 @@
             ></StackLayout>
           </StackLayout>
         </StackLayout>
-
         <GridLayout rows="*,2*,*" columns="*,*">
-          <Button colSpan="2" @tap="upTap" />
-          <Button row="1" col="0" @tap="leftTap" />
-          <Button row="1" col="1" @tap="rightTap" />
-          <Button colSpan="2" row="2" @tap="downTap" />
-        </GridLayout>
+  <Button colSpan="2" @tap="upTap" />
+  <Button row="1" col="0" @tap="leftTap" />
+  <Button row="1" col="1" @tap="rightTap" />
+  <Button colSpan="2" row="2" @tap="downTap" />
+</GridLayout>
       </GridLayout>
     </Page>
   </Frame>
@@ -43,10 +41,17 @@ import blockTypes from "../blockTypes";
 const widthCount = 10;
 const heightCount = 20;
 
-const pixelWidth = ref(0);
-const pixelHeight = ref(0);
+const pixelWidth = ref(10);
+const pixelHeight = ref(10);
 
-const board = reactive<Array<any>>([]);
+interface Pixel {
+  i: number;
+  j: number;
+  isBlocked: boolean;
+  filled: boolean;
+}
+
+const board = reactive([] as Pixel[][]);
 const currentScore = ref<number>(0);
 const startPosition = Math.floor(widthCount / 2) + widthCount * 2;
 let position = ref(startPosition);
@@ -83,7 +88,7 @@ const rightTap = () => {
 
 const clearBoard = () => {
   board.forEach((row) => {
-    row.pixels.forEach((pixel) => {
+    row.forEach((pixel) => {
       pixel.filled = false;
     });
   });
@@ -94,7 +99,7 @@ const renderBlock = (block: any, rotation: number, position: number) => {
   block[rotation](position).forEach((index) => {
     const row = Math.floor(index / widthCount);
     const col = index % widthCount;
-    board[row].pixels[col].filled = true;
+    board[row][col].filled = true;
   });
 };
 
@@ -103,7 +108,7 @@ const freezeBlock = (block, rotation, position) => {
   block[rotation](position).forEach((index) => {
     const row = Math.floor(index / widthCount);
     const col = index % widthCount;
-    board[row].pixels[col].isBlocked = true;
+    board[row][col].isBlocked = true;
   });
 };
 
@@ -111,7 +116,7 @@ const moveIsAllowed = (block, rotation, position) => {
   return block[rotation](position).every((index) => {
     const row = Math.floor(index / widthCount);
     const col = index % widthCount;
-    return !board[row].pixels[col].isBlocked;
+    return !board[row][col].isBlocked;
   });
 };
 
@@ -124,23 +129,9 @@ const SetScore = () => {
   // gameNode.appendChild(scoreNode);
 };
 
-const AddNewLineAtTop = () => {
-  // var secondLineNode = document.querySelectorAll(".tetris-pixel")[widthCount];
-  // for (var i = 0; i < widthCount; i++) {
-  //   let pixelNode = document.createElement("div");
-  //   pixelNode.className =
-  //     "tetris-pixel" + (i === 0 || i === widthCount - 1 ? " pixel-stop" : "");
-  //   secondLineNode.parentNode.insertBefore(pixelNode, secondLineNode);
-  // }
-  // secondLineNode.parentNode.insertBefore(document.createElement("br"), secondLineNode);
-};
-
 const RemoveFullLines = () => {
   // TODO PORT THE COMMENTED OUT CODE BELOW
   // let pixelNodes = document.querySelectorAll(".tetris-pixel");
-  // const hasClass = (element, className) => {
-  //   return (" " + element.className + " ").indexOf(" " + className + " ") > -1;
-  // };
   // let numberOfLinesRemoved = 0;
   // for (var i = height - 2; i > 0; i--) {
   //   let positionAtRowStart = i * width + 1;
@@ -157,20 +148,39 @@ const RemoveFullLines = () => {
   //       node.parentNode.removeChild(node);
   //     });
   //     numberOfLinesRemoved++;
-  //     AddNewLineAtTop();
   //   }
   // }
   // currentScore += { 0: 0, 1: 40, 2: 100, 3: 300, 4: 1200 }[numberOfLinesRemoved];
   // SetScore();
+
+  for (var i = heightCount - 2; i > 0; i--) {
+    let positionAtRowStart = i * widthCount + 1;
+    let positionAtRowEnd = positionAtRowStart + widthCount - 2;
+    let fullPixel = [positionAtRowStart - 1, positionAtRowEnd];
+    for (
+      var pixelIndex = positionAtRowStart;
+      pixelIndex < positionAtRowEnd;
+      pixelIndex++
+    ) {
+      let pixel = board[i][pixelIndex];
+      // if (pixel.isBlocked) break;
+      // fullPixel.push(j);
+    }
+    if (fullPixel.length === widthCount) {
+      // fullPixel.forEach((p) => {
+      //   let node = pixelNodes[p];
+      //   node.parentNode.removeChild(node);
+      // });
+      // numberOfLinesRemoved++;
+    }
+  }
 };
 
 onMounted(() => {
   let unsafeAreaHeight = 100;
-
   pixelWidth.value = Math.floor(Screen.mainScreen.widthDIPs) / widthCount;
   pixelHeight.value =
     Math.floor(Screen.mainScreen.heightDIPs - unsafeAreaHeight) / heightCount;
-
   playerInterval = setInterval(() => {
     currentBlock.value =
       currentBlock.value ||
@@ -178,7 +188,6 @@ onMounted(() => {
     nextBlock.value =
       nextBlock.value ||
       blockTypes(widthCount)[Math.floor(Math.random() * blockTypes(widthCount).length)];
-
     if (moveIsAllowed(currentBlock.value, rotation.value, position.value + widthCount)) {
       position.value += widthCount;
       renderBlock(currentBlock.value, rotation.value, position.value);
@@ -198,20 +207,17 @@ onMounted(() => {
       }
     }
   }, 1000);
-
   for (let i = 0; i < heightCount; i++) {
-    const row = {
-      id: i,
-      pixels: [] as any[],
-    };
+    let pixels = [] as Pixel[];
     for (let j = 0; j < widthCount; j++) {
-      row.pixels.push({
+      pixels.push({
         i,
         j,
         isBlocked: i === 0 || i === heightCount - 1 || j === 0 || j === widthCount - 1,
-      });
+        filled: false,
+      } as Pixel);
     }
-    board.push(row);
+    board.push(pixels);
   }
 });
 
@@ -223,10 +229,10 @@ onUnmounted(() => {
 
 <style>
 .tetris-pixel-blocked {
-  background: gray;
+  background: white;
 }
 
 .tetris-pixel-filled {
-  background: green;
+  background: white;
 }
 </style>

@@ -1,8 +1,9 @@
 <template>
   <Frame>
     <Page actionBarHidden="true">
-      <GridLayout background="#65ADF1" iosOverflowSafeArea="false">
+      <GridLayout background="#65ADF1" iosOverflowSafeArea="false" @tap="rotateBlock">
         <StackLayout iosOverflowSafeArea="false" col="1" row="1">
+          <Label :text="accData" />
           <StackLayout
             iosOverflowSafeArea="false"
             orientation="horizontal"
@@ -24,18 +25,16 @@
             ></StackLayout>
           </StackLayout>
         </StackLayout>
-        <GridLayout rows="*,2*,*" columns="*,*">
-  <Button colSpan="2" @tap="upTap" />
-  <Button row="1" col="0" @tap="leftTap" />
-  <Button row="1" col="1" @tap="rightTap" />
-  <Button colSpan="2" row="2" @tap="downTap" />
-</GridLayout>
       </GridLayout>
     </Page>
   </Frame>
 </template>
 <script lang="ts" setup>
 import { ref, reactive, onMounted, onUnmounted } from "nativescript-vue";
+import {
+  startAccelerometerUpdates,
+  stopAccelerometerUpdates,
+} from "@triniwiz/nativescript-accelerometer";
 import { Screen } from "@nativescript/core";
 import blockTypes from "../blockTypes";
 const widthCount = 10;
@@ -48,17 +47,16 @@ interface Pixel {
   i: number;
   j: number;
   isBlocked: boolean;
-  filled: boolean;
+  filled: boolean; // THIS IS NOT USED
 }
 
 const board = reactive([] as Pixel[][]);
-const currentScore = ref<number>(0);
 const startPosition = Math.floor(widthCount / 2) + widthCount * 2;
-let position = ref(startPosition);
-let rotation = ref(0);
-let currentBlock = ref(null);
-let nextBlock = ref(null);
-
+const position = ref(startPosition);
+const rotation = ref(0);
+const currentBlock = ref(null);
+const nextBlock = ref(null);
+const accData = ref("");
 let playerInterval: any;
 
 const downTap = () => {
@@ -67,22 +65,11 @@ const downTap = () => {
     renderBlock(currentBlock.value, rotation.value, position.value);
   }
 };
-const upTap = () => {
+const rotateBlock = () => {
   let r = rotation.value >= currentBlock.value.length - 1 ? 0 : rotation.value + 1;
   if (moveIsAllowed(currentBlock.value, r, position.value)) {
     rotation.value = r;
     renderBlock(currentBlock.value, rotation.value, position.value);
-  }
-};
-const leftTap = () => {
-  console.log(rotation.value);
-  if (moveIsAllowed(currentBlock.value, rotation.value, position.value - 1)) {
-    renderBlock(currentBlock.value, rotation.value, --position.value);
-  }
-};
-const rightTap = () => {
-  if (moveIsAllowed(currentBlock.value, rotation.value, position.value + 1)) {
-    renderBlock(currentBlock.value, rotation.value, ++position.value);
   }
 };
 
@@ -113,70 +100,53 @@ const freezeBlock = (block, rotation, position) => {
 };
 
 const moveIsAllowed = (block, rotation, position) => {
-  return block[rotation](position).every((index) => {
+  if (!block || typeof block[rotation] !== "function") return false;
+
+  const indices = block[rotation](position);
+  if (!Array.isArray(indices)) return false;
+
+  return indices.every((index) => {
+    if (typeof index !== "number") return false;
+
     const row = Math.floor(index / widthCount);
     const col = index % widthCount;
-    return !board[row][col].isBlocked;
+
+    return board[row] && board[row][col] && !board[row][col].isBlocked;
   });
 };
 
-const SetScore = () => {
-  // let gameNode = document.querySelector(".tetris-game");
-  // gameNode.removeChild(document.querySelector(".tetris-score"));
-  // let scoreNode = document.createElement("div");
-  // scoreNode.className = "tetris-score";
-  // scoreNode.innerHTML = currentScore;
-  // gameNode.appendChild(scoreNode);
-};
-
 const RemoveFullLines = () => {
-  // TODO PORT THE COMMENTED OUT CODE BELOW
-  // let pixelNodes = document.querySelectorAll(".tetris-pixel");
-  // let numberOfLinesRemoved = 0;
-  // for (var i = height - 2; i > 0; i--) {
-  //   let positionAtRowStart = i * width + 1;
-  //   let positionAtRowEnd = positionAtRowStart + width - 2;
-  //   let fullPixel = [positionAtRowStart - 1, positionAtRowEnd];
-  //   for (var j = positionAtRowStart; j < positionAtRowEnd; j++) {
-  //     let node = pixelNodes[j];
-  //     if (!hasClass(node, "pixel-stop")) break;
-  //     fullPixel.push(j);
-  //   }
-  //   if (fullPixel.length === width) {
-  //     fullPixel.forEach((p) => {
-  //       let node = pixelNodes[p];
-  //       node.parentNode.removeChild(node);
-  //     });
-  //     numberOfLinesRemoved++;
-  //   }
-  // }
-  // currentScore += { 0: 0, 1: 40, 2: 100, 3: 300, 4: 1200 }[numberOfLinesRemoved];
-  // SetScore();
-
-  for (var i = heightCount - 2; i > 0; i--) {
-    let positionAtRowStart = i * widthCount + 1;
-    let positionAtRowEnd = positionAtRowStart + widthCount - 2;
-    let fullPixel = [positionAtRowStart - 1, positionAtRowEnd];
-    for (
-      var pixelIndex = positionAtRowStart;
-      pixelIndex < positionAtRowEnd;
-      pixelIndex++
-    ) {
-      let pixel = board[i][pixelIndex];
-      // if (pixel.isBlocked) break;
-      // fullPixel.push(j);
+  board.forEach((row) => {
+    if (row.every((pixel) => pixel.filled)) {
+      board.splice(board.indexOf(row), 1);
     }
-    if (fullPixel.length === widthCount) {
-      // fullPixel.forEach((p) => {
-      //   let node = pixelNodes[p];
-      //   node.parentNode.removeChild(node);
-      // });
-      // numberOfLinesRemoved++;
-    }
-  }
+  });
 };
 
 onMounted(() => {
+  startAccelerometerUpdates(
+    (data) => {
+      const sensitivity = 0.5;
+
+      let x = JSON.parse(JSON.stringify(data.x));
+      if (x > sensitivity) {
+        x = sensitivity;
+      } else if (x < -sensitivity) {
+        x = -sensitivity;
+      }
+      let normalizedX = Math.floor(((x + sensitivity) / (sensitivity * 2)) * widthCount);
+      accData.value = `Current position: ${position.value}, X: ${normalizedX}`;
+      const tempPosition = position.value - (position.value % widthCount) + normalizedX;
+      if (moveIsAllowed(currentBlock.value, rotation.value, tempPosition)) {
+        renderBlock(currentBlock.value, rotation.value, tempPosition);
+        position.value = tempPosition;
+      }
+    },
+    {
+      sensorDelay: "game",
+    }
+  );
+
   let unsafeAreaHeight = 100;
   pixelWidth.value = Math.floor(Screen.mainScreen.widthDIPs) / widthCount;
   pixelHeight.value =
@@ -188,21 +158,27 @@ onMounted(() => {
     nextBlock.value =
       nextBlock.value ||
       blockTypes(widthCount)[Math.floor(Math.random() * blockTypes(widthCount).length)];
+
+    // Move block down if possible
     if (moveIsAllowed(currentBlock.value, rotation.value, position.value + widthCount)) {
       position.value += widthCount;
       renderBlock(currentBlock.value, rotation.value, position.value);
     } else {
+      // If not possible and block is at the top, game over
       if (!moveIsAllowed(nextBlock.value, 0, startPosition)) {
         clearInterval(playerInterval);
         freezeBlock(currentBlock.value, rotation.value, position.value);
       } else {
+        // If not possible and block is not at the top, freeze block and create new block
         freezeBlock(currentBlock.value, rotation.value, position.value);
         position.value = startPosition;
         rotation.value = 0;
+
         currentBlock.value = nextBlock.value;
         nextBlock.value = blockTypes(widthCount)[
           Math.floor(Math.random() * blockTypes(widthCount).length)
         ];
+
         RemoveFullLines();
       }
     }
@@ -223,6 +199,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   console.log("unmounted");
+  stopAccelerometerUpdates();
   clearInterval(playerInterval);
 });
 </script>

@@ -2,7 +2,12 @@
   <Frame>
     <Page actionBarHidden="true">
       <GridLayout background="#65ADF1" @tap="rotateBlock" @swipe="swipe">
-        <StackLayout :opacity="isPlaying ? 1: .2" verticalAlignment="center" col="1" row="1">
+        <StackLayout
+          :opacity="isPlaying ? 1 : 0.2"
+          verticalAlignment="center"
+          col="1"
+          row="1"
+        >
           <StackLayout
             orientation="horizontal"
             v-for="(row, rowIndex) in board"
@@ -174,22 +179,29 @@ const clearBoard = () => {
   }
 };
 
-const renderBlock = (block: any, rotation: number, position: number) => {
+const updateBlock = (
+  block: any,
+  rotation: number,
+  position: number,
+  action: (row: number, col: number) => void
+) => {
   if (typeof block?.[rotation] !== "function" || isNaN(position)) return;
   clearBoard();
   block[rotation](position).forEach((index: number) => {
     const row = Math.floor(index / widthCount);
     const col = index % widthCount;
+    action(row, col);
+  });
+};
+
+const renderBlock = (block: any, rotation: number, position: number) => {
+  updateBlock(block, rotation, position, (row, col) => {
     if (board[row]?.[col]) board[row][col].isBlock = true;
   });
 };
 
 const lockBlock = (block: any, rotation: number, position: number) => {
-  if (typeof block?.[rotation] !== "function" || isNaN(position)) return;
-  clearBoard();
-  block[rotation](position).forEach((index: number) => {
-    const row = Math.floor(index / widthCount);
-    const col = index % widthCount;
+  updateBlock(block, rotation, position, (row, col) => {
     if (board[row]?.[col]) board[row][col].isLocked = true;
   });
 };
@@ -242,14 +254,13 @@ const removeFullLines = () => {
   }
 
   const scoreMap = { 0: 0, 1: 40, 2: 100, 3: 300, 4: 1200 };
-  highscore.value += scoreMap[lockedRowIndices.length]; // Assuming you want to store the number of locked rows
+  highscore.value += scoreMap[lockedRowIndices.length];
 };
 
 const highscoreComment = computed(() => {
   // The comments are more fun if you don't read the code below 😅
   // These are made by ChatGPT, so don't take them too seriously
-  if (highscore.value < 40)
-    return "Did you even play? 😅 Try again!";
+  if (highscore.value < 40) return "Did you even play? 😅 Try again!";
   if (highscore.value >= 40 && highscore.value < 500)
     return "I've seen snails move faster... and stack better! 🐌";
   if (highscore.value >= 500 && highscore.value < 1000)
@@ -291,7 +302,9 @@ const newGame = () => {
     currentBlock.value =
       currentBlock.value ||
       blockTypes(widthCount)[Math.floor(Math.random() * blockTypes(widthCount).length)];
-    nextBlock.value = nextBlock.value || blockTypes(widthCount)[6]; //[Math.floor(Math.random() * blockTypes(widthCount).length)];
+    nextBlock.value =
+      nextBlock.value ||
+      blockTypes(widthCount)[Math.floor(Math.random() * blockTypes(widthCount).length)];
 
     // Move block down if possible
     if (moveIsAllowed(currentBlock.value, rotation.value, position.value + widthCount)) {

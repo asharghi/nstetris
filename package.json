@@ -4,11 +4,16 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
+    "@martinstark/throttle-ts": "^1.3.0",
+    "@nativescript-community/ui-canvas": "^4.6.3",
+    "@nativescript-community/ui-svg": "^0.1.14",
     "@nativescript/core": "~8.5.0",
+    "@nativescript/haptics": "^3.0.2",
     "@triniwiz/nativescript-accelerometer": "^4.0.3",
     "nativescript-vue": "3.0.0-beta.9"
   },
   "devDependencies": {
+    "@nativescript/android": "8.5.4",
     "@nativescript/ios": "8.5.2",
     "@nativescript/tailwind": "^2.0.1",
     "@nativescript/types": "~8.5.0",

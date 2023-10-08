@@ -48,7 +48,7 @@
               color="white"
             />
             <Label
-              :text="playCount > 0 ? highscore : 'Are you ready?'"
+              :text="playCount > 0 ? highscore : 'Ready?'"
               textWrap="true"
               verticalAlignment="center"
               fontWeight="bold"
